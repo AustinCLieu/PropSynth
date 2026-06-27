@@ -1,0 +1,4 @@
+{
+    "entrypoint": "merge_sorted",
+    "description": "Merge two pre-sorted lists into one sorted list"
+}
