@@ -4,10 +4,11 @@
 # Agent loop generates code -> evaluate func runs in sandbox -> parse output func returns verdict -> loop declares success or tries again if not passed
 
 from dataclasses import dataclass # decorator that auto generates boilerplate for making a class
+import re # Python's regex module. We use it to extract text form pytest's output
 
 
 
-
+# Output class from the oracle. This is the format of what returns after a piece of code is ran in the sandbox and judged by the oracle
 @dataclass
 class Verdict:
     passed: bool # passed or not passed the test
@@ -18,4 +19,38 @@ class Verdict:
     raw_output: str # full pytest output to keep for tracing
     timed_out: bool = False # defualt value goes after values that aren't default
 
+# Regex parsing patterns
+# re.compile takes a pattern string and pre-builds it into a reuable pattern object for efficiency
+# r"..." allows for single "\""
+# _, leading underscore, is a python convention meaning that something is internal to the module, not meant to be used from the outside
+
+# finds pytest's failure summary line, ex pytest ouput: FAILED properties.py::test_length_preserved - ...
+# FAILED = FAILED, \s+ matches one or more spaces, \S+ matches one or more non-space chars, :: matches ::, (\S+) matches test name and captures it
+_FAILED_RE = re.compile(r"FAILED\s+\S+::(\S+)") 
+
+
+# finds the counterexample
+# ex pytest output: 
+# Falsifying example: test_length_preserved(
+# a=[0], b=[0],
+# )
+# Falsifying example: = Falsifying example:, \s* is 0 or more whitespace, (.*?) captures any characters but the ? makes it non greedy so it stops at the first place the next pattern can match
+# (?:\n\n|\nE\s|\n_{3,}|\Z) is the non-capturing group, ?: means "group these together but don't capture this part as output"
+# \n\n is a blank line (two newlines in a row) as counterex block is usually followed by a blank line
+# \nE\s is a new line followed by E (start of an error deatil line)
+# \n_{3,} is a newline followed by 3 or more underscores
+# \Z is the very end of the string
+# normally . matches any char except newlines, re.DOTALL lets . match newlines too
+_FALSIFYING_RE = re.compile(r"Falsifying example:\s*(.*?)(?:\n\n|\nE\s|\n_{3,}|\Z)", re.DOTALL)
+
+
+# finds pytest's error detail lines
+# ex: E   assert 1 == 2
+# ^ means start of a line
+# E matches E
+# \s+ matches one or more spaces
+# (.*) captures everything else on the line, 0 or more of any chars
+# $ means end of line so (.*) only goes to the end of the line
+# normaly, ^ and $ match only the very start and very end of the entire text. re.MULTILINE means that ^ and $ match the start and end of each line in the text
+_ERROR_LINE_RE = re.compile(r"^E\s+(.*)$", re.MULTILINE)
 
