@@ -1,6 +1,6 @@
 from collections import Counter
 from hypothesis import give, strategies as st
-from solution import merge_sorted
+from solution import merge_sorted # solution comes from solution.py made in test folder in evaluate function in propsynth/oracle.py
 
 # Strategy: lists of integers that are already sorted
 sorted_ints = st.lists(st.integers(), max_size = 50).map(sorted)

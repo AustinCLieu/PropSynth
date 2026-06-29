@@ -4,7 +4,12 @@
 # Agent loop generates code -> evaluate func runs in sandbox -> parse output func returns verdict -> loop declares success or tries again if not passed
 
 from dataclasses import dataclass # decorator that auto generates boilerplate for making a class
+from pathlib import Path # represents paths as objects with methods and properties
 import re # Python's regex module. We use it to extract text form pytest's output
+import shutil # shell utilities: high level file operations such as copying files, removing dir trees
+import tempfile # creates temporary files and dirs (use for sandbox testing)
+
+from .tasks import Task # from tasks.py in the same package, import the Task class
 
 
 
@@ -71,6 +76,26 @@ def parse_pytest_output(raw_output: str, returncode: int, timed_out: bool = Fals
     message = " ".join(e.strip() for e in errors).strip() or None
 
     return Verdict(False, failing_property, counterexample, message, raw_output)
+
+# Absolute path to the run_oracle.py file/script in the same package (script that runs inside the container)
+_RUN_ORACLE_SCRIPT = Path(__file__).resolve().parent / "run_oracle.py"
+
+# Runs the task's property tests against candidate code in the sandbox
+def evaluate(task: Task, candidate_code: str) -> Verdict:
+    # importing inside evaluate function because sandbox module isn't created yet, allows for testing parse_putest_output before building sandbox.py
+    from .sandbox import run_oracle_in_sandbox
+    work_root = Path(__file__).resolve().parent.parent / ".sandbox_work" # builds absolute path to sandbox_work folder (work root)
+    work_root.mkdir(exist_ok = True) # creates the sandbox_work folder if it doesn't exist (exist_ok = True stops an error if the sandbox_work folder already exists)
+    work = Path(tempfile.mkdtemp(dir = work_root)) # creates a new temporary subfolder inside the sandbox work folder
+    try: # runs the real work
+        (work / "solution.py").write_text(candidate_code) # writes model's code to work folder's solution.py
+        shutil.copy(task.properties_path, work / "properties.py") # copies property tests into work folder
+        shutil.copy(_RUN_ORACLE_SCRIPT, work / "run_oracle.py") # copies in-container runner script into work folder, anything outside container can't be accessed when test code is running in docker
+        raw, returncode, timed_out = run_oracle_in_sandbox(work) # runs them in Docker and returns the raw output, exit code, and timeout flag
+        return parse_pytest_output(raw, returncode, timed_out) # returns Verdict
+    finally: # runs no matter what even if an error is thrown midway
+        shutil.rmtree(work, ignore_errors = True) # rmtree deletes the whole work direcotry, ignore_errors = True means it doesn't crash if deletion fails
+    
 
 
     
