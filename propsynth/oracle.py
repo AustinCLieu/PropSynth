@@ -54,3 +54,23 @@ _FALSIFYING_RE = re.compile(r"Falsifying example:\s*(.*?)(?:\n\n|\nE\s|\n_{3,}|\
 # normaly, ^ and $ match only the very start and very end of the entire text. re.MULTILINE means that ^ and $ match the start and end of each line in the text
 _ERROR_LINE_RE = re.compile(r"^E\s+(.*)$", re.MULTILINE)
 
+# Takes raw pytest output, parses through it using the regex patterns, and returns a Verdict
+def parse_pytest_output(raw_output: str, returncode: int, timed_out: bool = False) -> Verdict:
+    if timed_out: # code timed out
+        return Verdict(False, None, None, "Execution timed out", raw_output, True)
+    if returncode == 0: # passed with no issues
+        return Verdict(True, None, None, None, raw_output)
+    
+    failed = _FAILED_RE.search(raw_output)
+    failing_property = failed.group(1) if failed else None
+
+    falsifying = _FALSIFYING_RE.search(raw_output)
+    counterexample = falsifying.group(1).strip if falsifying else None
+
+    errors = _ERROR_LINE_RE.findall(raw_output) # Can have multiple E error lines
+    message = " ".join(e.strip() for e in errors).strip() or None
+
+    return Verdict(False, failing_property, counterexample, message, raw_output)
+
+
+    
