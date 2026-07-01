@@ -14,8 +14,16 @@ def test_parse_succes():
 # tests the parser handles a real failure completely, updating the Verdict correctly
 def test_parse_failure_extracts_everything():
     raw = """
-    ...multi-line fake pytest output...
-    """ # multi-line triple-quoted string, what pytest may print on failure
+=================================== FAILURES ===================================
+______________________ test_length_preserved __________________________________
+    Falsifying example: test_length_preserved(
+        a=[0], b=[0],
+    )
+E   assert 1 == 2
+=========================== short test summary info ============================
+FAILED properties.py::test_length_preserved - assert 1 == 2
+"""
+    # multi-line triple-quoted string, what pytest may print on failure
     v = parse_pytest_output(raw, 1) # fake failrue output and return code 1 should skip timeout and success branches in parse_pytest_output
     assert not v.passed # passes if v.passed is false
     assert v.failing_property == "test_length_preserved" # tests that parser, _FAILED_RE regex, pulled exact property name from FAILED...:test_length_preserved line

@@ -70,7 +70,7 @@ def parse_pytest_output(raw_output: str, returncode: int, timed_out: bool = Fals
     failing_property = failed.group(1) if failed else None
 
     falsifying = _FALSIFYING_RE.search(raw_output)
-    counterexample = falsifying.group(1).strip if falsifying else None
+    counterexample = falsifying.group(1).strip() if falsifying else None
 
     errors = _ERROR_LINE_RE.findall(raw_output) # Can have multiple E error lines
     message = " ".join(e.strip() for e in errors).strip() or None
